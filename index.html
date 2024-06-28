@@ -3,185 +3,134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>To-Do List App</title>
+    <title>Pomodoro Timer</title>
     <style>
         body {
-            font-family: 'Arial', sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
+            font-family: Arial, sans-serif;
             background-color: #f0f4f8;
             margin: 0;
         }
-        #todo-app {
+        #pomodoro-timer {
             background-color: #ffffff;
             padding: 20px 30px;
             border-radius: 15px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 400px;
             text-align: center;
         }
-        #todo-app h1 {
+        h1 {
             margin-bottom: 20px;
-            color: #333;
         }
-        input {
-            padding: 10px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            width: calc(100% - 24px);
+        #time {
+            font-size: 48px;
             margin-bottom: 20px;
-            transition: all 0.3s;
-        }
-        input:focus {
-            border-color: #007bff;
-            box-shadow: 0 0 8px rgba(0, 123, 255, 0.2);
         }
         button {
-            padding: 10px 15px;
-            font-size: 16px;
-            cursor: pointer;
-            border: none;
-            background-color: #007bff;
-            color: white;
-            border-radius: 5px;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        ul {
-            list-style-type: none;
-            padding: 0;
-            margin: 0;
-        }
-        li {
             padding: 10px 20px;
             font-size: 16px;
-            background-color: #f9f9f9;
-            margin: 5px 0;
+            cursor: pointer;
+            border: none;
             border-radius: 5px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            margin: 5px;
             transition: background-color 0.3s;
         }
-        li:hover {
-            background-color: #f1f1f1;
+        #start-btn {
+            background-color: #007bff;
+            color: white;
         }
-        .completed {
-            text-decoration: line-through;
-            color: gray;
+        #start-btn:hover {
+            background-color: #0056b3;
         }
-        .btn {
-            background-color: transparent;
-            border: none;
-            cursor: pointer;
-            color: #ff4d4d;
-            font-size: 16px;
-            transition: color 0.3s;
+        #pause-btn {
+            background-color: #ffc107;
+            color: white;
         }
-        .btn:hover {
-            color: #ff0000;
+        #pause-btn:hover {
+            background-color: #e0a800;
         }
-        .filter-buttons {
-            margin: 20px 0;
+        #reset-btn {
+            background-color: #6c757d;
+            color: white;
         }
-        .filter-buttons button {
-            margin: 0 5px;
-            padding: 5px 10px;
-            cursor: pointer;
-        }
-        .btn-edit {
-            color: #007bff;
-            margin-right: 10px;
-        }
-        .btn-edit:hover {
-            color: #0056b3;
+        #reset-btn:hover {
+            background-color: #5a6268;
         }
     </style>
 </head>
 <body>
-    <div id="todo-app">
-        <h1>To-Do List</h1>
-        <input type="text" id="todo-input" placeholder="Add a new task">
-        <button id="add-button">Add</button>
-        <div class="filter-buttons">
-            <button id="all-filter">All</button>
-            <button id="completed-filter">Completed</button>
-            <button id="pending-filter">Pending</button>
-        </div>
-        <ul id="todo-list"></ul>
+    <div id="pomodoro-timer">
+        <h1>Pomodoro Timer</h1>
+        <div id="time">25:00</div>
+        <button id="start-btn">Start</button>
+        <button id="pause-btn">Pause</button>
+        <button id="reset-btn">Reset</button>
+        <audio id="alarm-sound" src="https://www.soundjay.com/button/beep-07.wav" preload="auto"></audio>
     </div>
-
     <script>
-        document.getElementById('add-button').addEventListener('click', addTodo);
-        document.getElementById('todo-input').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                addTodo();
-            }
-        });
+        const timeDisplay = document.getElementById('time');
+        const startButton = document.getElementById('start-btn');
+        const pauseButton = document.getElementById('pause-btn');
+        const resetButton = document.getElementById('reset-btn');
+        const alarmSound = document.getElementById('alarm-sound');
 
-        document.getElementById('all-filter').addEventListener('click', () => filterTodos('all'));
-        document.getElementById('completed-filter').addEventListener('click', () => filterTodos('completed'));
-        document.getElementById('pending-filter').addEventListener('click', () => filterTodos('pending'));
+        let workTime = 25 * 60;
+        let breakTime = 5 * 60;
+        let timeLeft = workTime;
+        let isRunning = false;
+        let isWorkInterval = true;
+        let interval;
 
-        function addTodo() {
-            const todoInput = document.getElementById('todo-input');
-            const todoText = todoInput.value.trim();
-            if (todoText !== '') {
-                const todoList = document.getElementById('todo-list');
-                const li = document.createElement('li');
-                li.innerHTML = `
-                    <span class="todo-text" contenteditable="true">${todoText}</span>
-                    <span>
-                        <button class="btn btn-edit" onclick="editTodo(this)">Edit</button>
-                        <button class="btn" onclick="deleteTodo(this)">Delete</button>
-                    </span>
-                `;
-                li.addEventListener('click', function() {
-                    this.classList.toggle('completed');
-                });
-                todoList.appendChild(li);
-                todoInput.value = '';
-            }
+        function updateTimeDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            timeDisplay.textContent = `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
         }
 
-        function deleteTodo(element) {
-            element.parentElement.parentElement.remove();
-        }
-
-        function editTodo(element) {
-            element.parentElement.parentElement.querySelector('.todo-text').focus();
-        }
-
-        function filterTodos(filter) {
-            const todos = document.querySelectorAll('#todo-list li');
-            todos.forEach(todo => {
-                switch (filter) {
-                    case 'all':
-                        todo.style.display = 'flex';
-                        break;
-                    case 'completed':
-                        if (todo.classList.contains('completed')) {
-                            todo.style.display = 'flex';
+        function startTimer() {
+            if (!isRunning) {
+                isRunning = true;
+                interval = setInterval(() => {
+                    if (timeLeft > 0) {
+                        timeLeft--;
+                        updateTimeDisplay();
+                    } else {
+                        alarmSound.play();
+                        if (isWorkInterval) {
+                            timeLeft = breakTime;
+                            isWorkInterval = false;
                         } else {
-                            todo.style.display = 'none';
+                            timeLeft = workTime;
+                            isWorkInterval = true;
                         }
-                        break;
-                    case 'pending':
-                        if (!todo.classList.contains('completed')) {
-                            todo.style.display = 'flex';
-                        } else {
-                            todo.style.display = 'none';
-                        }
-                        break;
-                }
-            });
+                        updateTimeDisplay();
+                    }
+                }, 1000);
+            }
         }
+
+        function pauseTimer() {
+            if (isRunning) {
+                clearInterval(interval);
+                isRunning = false;
+            }
+        }
+
+        function resetTimer() {
+            clearInterval(interval);
+            isRunning = false;
+            timeLeft = workTime;
+            isWorkInterval = true;
+            updateTimeDisplay();
+        }
+
+        startButton.addEventListener('click', startTimer);
+        pauseButton.addEventListener('click', pauseTimer);
+        resetButton.addEventListener('click', resetTimer);
+
+        updateTimeDisplay();
     </script>
 </body>
 </html>
